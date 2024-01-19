@@ -1,0 +1,132 @@
+Open eclipse
+a. Create a java project in it
+b. Create package “trial” in that project
+c. Create the class “WordCountDemo.java” in that “trial” package.
+
+Add reference of JAR files in the project [ Right click on project -> Build path ->
+Configure build path]
+
+(hadoop-core-1.2.1.jar
+commons-cli-1.2.jar
+hadoop-common-3.3.2.jar)
+
+Create a jar file using following steps:
+Right Click on project -> export -> Runnable JAR file
+
+//WordCount Java
+
+package trial;
+
+import java.io.IOException;
+import java.util.StringTokenizer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class WordCountDemo {
+
+  public static class TokenizerMapper
+       extends Mapper<Object, Text, Text, IntWritable>{
+    private final static IntWritable one = new IntWritable(1);
+    private Text word = new Text();
+    public void map(Object key, Text value, Context context
+                    ) throws IOException, InterruptedException {
+      StringTokenizer itr = new StringTokenizer(value.toString());
+      while (itr.hasMoreTokens()) {
+        word.set(itr.nextToken());
+        context.write(word, one);
+      }
+    }
+  }
+
+  public static class IntSumReducer
+       extends Reducer<Text,IntWritable,Text,IntWritable> {
+    private IntWritable result = new IntWritable();
+
+    public void reduce(Text key, Iterable<IntWritable> values,
+                       Context context
+                       ) throws IOException, InterruptedException {
+      int sum = 0;
+      for (IntWritable val : values) {
+        sum += val.get();
+      }
+      result.set(sum);
+      context.write(key, result);
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    Configuration conf = new Configuration();
+    Job job = Job.getInstance(conf, "word count");
+    job.setJarByClass(WordCountDemo.class);
+    job.setMapperClass(TokenizerMapper.class);
+    job.setCombinerClass(IntSumReducer.class);
+    job.setReducerClass(IntSumReducer.class);
+    job.setOutputKeyClass(Text.class);
+    job.setOutputValueClass(IntWritable.class);
+    FileInputFormat.addInputPath(job, new Path(args[0]));
+    FileOutputFormat.setOutputPath(job, new Path(args[1]));
+    System.exit(job.waitForCompletion(true) ? 0 : 1);
+  }
+}
+
+//Union Java
+package trial;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+import java.io.IOException;
+
+public class Union {
+
+   private static Text emptyWord = new Text("");
+   public static class Mapper
+           extends org.apache.hadoop.mapreduce.Mapper<Object, Text, Text, Text> {
+
+       public void map(Object key, Text value, Context context
+       ) throws IOException, InterruptedException {
+           context.write(value, emptyWord);
+       }
+   }
+
+   public static class Reducer
+           extends org.apache.hadoop.mapreduce.Reducer<Text, Text, Text, Text> {
+
+       public void reduce(Text key, Iterable<Text> _values,
+                          Context context
+       ) throws IOException, InterruptedException {
+               context.write(key, key);
+       }
+   }
+
+   public static void main(String[] args) throws Exception {
+       Configuration conf = new Configuration();
+
+       Job job = Job.getInstance(conf, "Word sum");
+       job.setJarByClass(Union.class);
+       job.setMapperClass(Mapper.class);
+       job.setCombinerClass(Reducer.class);
+       job.setReducerClass(Reducer.class);
+       job.setOutputKeyClass(Text.class);
+       job.setOutputValueClass(Text.class);
+
+       Path input = new Path( args[0]);
+       Path output = new Path(args[1]);
+
+       FileInputFormat.addInputPath(job, input);
+       FileOutputFormat.setOutputPath(job, output);
+       System.exit(job.waitForCompletion(true) ? 0 : 1);
+   }
+}
